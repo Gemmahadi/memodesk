@@ -90,16 +90,16 @@ no paid services, no cloud account.
 
 ## Links
 
-- **Demo video (< 5 min, 21 s):** **[TO BE ADDED BY ADI — upload `memodesk-demo.mp4` to YouTube (unlisted) and paste the link here]**
-- **Public GitHub repo:** **[TO BE ADDED BY ADI — push this folder to a public repo from an account you control and paste the URL here]**
+- **Demo video (< 5 min, 21 s):** https://www.youtube.com/watch?v=xSuy7sWmIK8 (Unlisted)
+- **Public GitHub repo:** https://github.com/Gemmahadi/memodesk
 - Meko docs: https://docs.mekodata.ai/reference/mcp-server/
 - Meko (open source, Apache-2.0): https://github.com/yugabyte/meko
 
 ## What remains before submitting (for Adi)
 
-1. Register on HackerEarth for ContextCon (name/email/company/LinkedIn/GitHub).
-2. Push this folder to a public GitHub repo.
-3. Upload `memodesk-demo.mp4` (in this folder, 1.4 MB, 21 s) and paste the link above.
+1. Register on HackerEarth for ContextCon (name/email/company/LinkedIn/GitHub) — in progress, waiting on Adi's Google sign-in.
+2. ~~Push this folder to a public GitHub repo.~~ DONE — https://github.com/Gemmahadi/memodesk
+3. ~~Upload `memodesk-demo.mp4` and paste the link above.~~ DONE — https://www.youtube.com/watch?v=xSuy7sWmIK8 (Unlisted)
 4. Submit before **Sun 17 Jan 2027, 11:59 PM PT**.
 
 ---
