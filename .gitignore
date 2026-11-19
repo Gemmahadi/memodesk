@@ -1,0 +1,13 @@
+# Runtime state (regenerated on run)
+state.json
+tickets.json
+audit.jsonl
+server.pid
+memodesk.log
+__pycache__/
+# Demo intermediates (regenerable via record_demo.py / build_video.py)
+video/*.webm
+video/*.png
+video/*.txt
+video/frame-*.png
+steps.json

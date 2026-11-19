@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MemoDesk — Support triage with Meko shared memory</title>
+<style>
+body{font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0;background:#0f172a;color:#e2e8f0}
+header{background:#1e293b;padding:16px 24px;border-bottom:3px solid #38bdf8}
+h1{margin:0;font-size:22px}h1 span{color:#38bdf8}
+.sub{color:#94a3b8;font-size:13px;margin-top:4px}
+main{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px;max-width:1400px;margin:auto}
+.card{background:#1e293b;border-radius:10px;padding:14px;margin-bottom:16px}
+.card h2{margin:0 0 10px;font-size:15px;color:#38bdf8}
+button{background:#0284c7;color:#fff;border:0;border-radius:6px;padding:8px 12px;cursor:pointer;margin:2px}
+button.ghost{background:#334155}button.warn{background:#b45309}
+button:disabled{opacity:.5;cursor:wait}
+.ticket{border:1px solid #334155;border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer}
+.ticket.sel{border-color:#38bdf8;background:#0c4a6e33}
+.ticket b{font-size:14px}.ticket .meta{color:#94a3b8;font-size:12px}
+.pill{display:inline-block;border-radius:20px;padding:1px 8px;font-size:11px;margin-left:6px}
+.pill.open{background:#7c2d12}.pill.triaged{background:#854d0e}.pill.resolved{background:#14532d}
+.pill.high,.pill.urgent{background:#991b1b}.pill.normal{background:#334155}
+pre{white-space:pre-wrap;word-break:break-word;background:#0f172a;padding:10px;border-radius:8px;font-size:13px;max-height:300px;overflow:auto}
+.hit{border-left:3px solid #38bdf8;background:#0f172a;padding:8px;margin:6px 0;border-radius:0 6px 6px 0;font-size:13px}
+.hit .src{color:#38bdf8;font-size:12px}
+input,textarea,select{width:100%;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:8px;margin:4px 0;box-sizing:border-box}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{border-bottom:1px solid #334155;padding:5px;text-align:left;vertical-align:top}
+.ok{color:#4ade80}.err{color:#f87171}.note{color:#94a3b8;font-size:12px}
+#log{font-size:12px}
+</style>
+</head>
+<body>
+<header>
+<h1>MemoDesk <span>— support-ticket triage agent</span></h1>
+<div class="sub">Theme: <b>Support agents</b> (+ auditability) · Context layer: <b>Meko</b> — local MCP server
+<code>http://127.0.0.1:7777/mcp</code>, no cloud account, Cloud <b>not linked</b> ·
+Agent: <b>rule-based triage (no LLM)</b> — retrieval is real Meko; the draft reply is composed only from retrieved snippets.</div>
+<div class="sub" id="health">Checking Meko…</div>
+</header>
+<main>
+<div>
+  <div class="card"><h2>1 · Seed shared memory</h2>
+    <button id="seedBtn">Seed Meko datapack</button>
+    <button id="resetBtn" class="warn">Reset demo</button>
+    <div id="seedOut" class="note"></div>
+  </div>
+  <div class="card"><h2>2 · Ticket inbox</h2><div id="inbox"></div></div>
+  <div class="card"><h2>New ticket</h2>
+    <input id="nc" placeholder="Customer name (e.g. Acme Corp)">
+    <input id="ns" placeholder="Subject">
+    <textarea id="nb" rows="3" placeholder="Message…"></textarea>
+    <button id="addBtn">Add ticket</button>
+  </div>
+</div>
+<div>
+  <div class="card"><h2>3 · Triage result</h2>
+    <div id="triage"><p class="note">Pick a ticket, then “Run triage”. The agent recalls Meko shared memory + knowledge base first, then classifies and drafts a reply grounded in what was retrieved.</p></div>
+  </div>
+  <div class="card"><h2>4 · Shared memory (live from Meko)</h2>
+    <button id="memBtn">Refresh memories</button>
+    <div id="memories"></div>
+  </div>
+  <div class="card"><h2>5 · Audit trail — every Meko MCP call</h2>
+    <button id="auditBtn">Refresh audit log</button>
+    <div id="audit"></div>
+  </div>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let sel=null;
+async function j(u,o){const r=await fetch(u,o);const t=await r.json();if(!r.ok)throw new Error(t.error||r.status);return t;}
+async function health(){try{const h=await j('/api/health');$('health').innerHTML=
+`Meko MCP: <span class="ok">reachable</span> · ${h.meko_tools} tools · datapack: ${h.datapack||'not seeded yet'} · seeded: ${h.seeded} · cloud_linked: false`;}
+catch(e){$('health').innerHTML='<span class="err">Meko unreachable: '+e.message+'</span>';}}
+async function inbox(){const d=await j('/api/tickets');$('inbox').innerHTML=d.tickets.map(t=>
+`<div class="ticket ${sel===t.id?'sel':''}" onclick="pick('${t.id}')"><b>${t.id}</b> — ${t.subject}<span class="pill ${t.status}">${t.status}</span>
+<div class="meta">${t.customer} · ${t.email}</div><div style="font-size:13px">${t.body.slice(0,110)}…</div>
+${t.resolution?`<div class="meta ok">Resolved: ${t.resolution}</div>`:''}</div>`).join('');}
+function pick(id){sel=id;inbox();}
+async function triage(){if(!sel)return alert('Pick a ticket first');
+ $('triage').innerHTML='<p>Calling Meko… (context_search → knowledgebase_search → conversation_add_message)</p>';
+ try{const r=await j('/api/triage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ticket_id:sel})});
+ const hit=(h)=>`<div class="hit"><div class="src">${h.source}${h.score!=null?' · score '+h.score:''}</div>${h.text}</div>`;
+ $('triage').innerHTML=`<p><b>${r.ticket.id}</b> · category <b>${r.category}</b> · priority <span class="pill ${r.priority}">${r.priority}</span></p>
+ <p class="note">${r.reasons.join(' · ')}</p>
+ <h3 style="font-size:14px">Retrieved from Meko — memory</h3>${r.retrieved.memory.map(hit).join('')||'<p class="note">no memory hits</p>'}
+ <h3 style="font-size:14px">Retrieved from Meko — knowledge base</h3>${r.retrieved.knowledge_base.map(hit).join('')||'<p class="note">no KB hits</p>'}
+ <h3 style="font-size:14px">Draft reply (grounded in the snippets above)</h3><pre>${r.draft_reply}</pre>
+ <p class="note">Stored as Meko conversation ${r.conversation_id} — replayable via conversation_get.</p>
+ <input id="res" placeholder="Resolution to remember, e.g. Duplicate $149 refunded as store credit">
+ <button onclick="resolve()">Resolve &amp; remember in Meko</button>`;
+ inbox();}catch(e){$('triage').innerHTML='<p class="err">Triage failed: '+e.message+'</p>';}}
+async function resolve(){const res=$('res').value.trim();if(!res)return alert('Write the resolution first');
+ try{const r=await j('/api/resolve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ticket_id:sel,resolution:res})});
+ $('triage').innerHTML+='<p class="ok">Resolved. Outcome stored as shared memory in Meko — open a follow-up ticket from the same customer and triage it to see the recall.</p>';
+ inbox();memories();}catch(e){alert('Resolve failed: '+e.message);}}
+async function memories(){try{const m=await j('/api/memories');const list=m.memories||m.results||[];
+ $('memories').innerHTML=(list.map(x=>`<div class="hit"><div class="src">memory ${x.id||''}</div>${x.memory||x.data||x.text||JSON.stringify(x)}</div>`).join(''))||'<p class="note">No memories yet — seed first.</p>';
+ }catch(e){$('memories').innerHTML='<p class="err">'+e.message+'</p>';}}
+async function audit(){try{const a=await j('/api/audit');
+ $('audit').innerHTML='<table><tr><th>time</th><th>MCP tool</th><th>ms</th><th>result</th></tr>'+a.calls.map(c=>
+ `<tr><td>${c.ts.slice(11,19)}</td><td>${c.tool}</td><td>${c.ms}</td><td>${c.ok?'<span class="ok">ok</span>':'<span class="err">fail</span>'} ${c.summary||''}</td></tr>`).join('')+'</table>';
+ }catch(e){$('audit').innerHTML='<p class="err">'+e.message+'</p>';}}
+$('seedBtn').onclick=async()=>{$('seedOut').textContent='Seeding…';try{const r=await j('/api/seed',{method:'POST'});
+ $('seedOut').textContent='Seeded datapack '+r.datapack_id+(r.note?' ('+r.note+')':'');health();memories();}catch(e){$('seedOut').textContent='Seed failed: '+e.message;}};
+$('resetBtn').onclick=async()=>{if(!confirm('Delete the MemoDesk datapack and re-seed?'))return;await j('/api/reset',{method:'POST'});health();inbox();memories();audit();};
+$('memBtn').onclick=memories;$('auditBtn').onclick=audit;
+$('addBtn').onclick=async()=>{const t=await j('/api/ticket',{method:'POST',headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({customer:$('nc').value||'Guest',subject:$('ns').value,body:$('nb').value})});sel=t.ticket.id;inbox();};
+const triBtn=document.createElement('button');triBtn.textContent='Run triage on selected ticket';triBtn.onclick=triage;
+document.querySelectorAll('.card')[1].appendChild(triBtn);
+health();inbox();
+</script>
+</body>
+</html>
